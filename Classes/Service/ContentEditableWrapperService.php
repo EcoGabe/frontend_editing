@@ -224,17 +224,28 @@ class ContentEditableWrapperService
             'data-new-url' => $this->renderEditOnClickReturnUrl($this->renderNewUrl($table, $uid))
         ]);
 
+        // Check for a div wrapping around content
+        $dom = new \DOMDocument('1.0', 'utf-8');
+        $dom->loadHTML('<?xml encoding="UTF-8">' . $content);
+        $col = $dom->getElementById('c'. $uid)->parentNode;
+        $isCol = $col->nodeName === 'div'; // not <body>, as expected
+
+        if ($isCol) {
+            $classes = $col->attributes->getNamedItem('class')->textContent;
+            $children = implode(array_map([$dom, 'saveHTML'], iterator_to_array($col->childNodes)));
+        }
+
         /** @var TagBuilder $tagBuilder */
         $tagBuilder = GeneralUtility::makeInstance(
             TagBuilder::class,
             $this->contentEditableWrapperTagName,
-            html_entity_decode($inlineActionTagBuilder->render() . $content)
+            html_entity_decode($inlineActionTagBuilder->render() . ($isCol ? $children : $content))
         );
 
         $tagBuilder->forceClosingTag(true);
 
         $tagBuilder->addAttributes([
-            'class' => 't3-frontend-editing__ce ' . $hiddenElementClassName,
+            'class' => 't3-frontend-editing__ce ' . $hiddenElementClassName . ($isCol ? (' ' . $classes) : ''),
             'title' => $recordTitle,
             'data-movable' => 1,
             'ondragstart' => 'window.parent.F.dragCeStart(event)',
